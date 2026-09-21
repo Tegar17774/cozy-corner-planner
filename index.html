@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozy Corner Planner — Gentle Habits & Mindful Journaling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============ TOAST NOTIFICATION CONTAINER ============ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="navbar">
+    <div class="container navbar__inner">
+      <a href="#" class="brand">
+        <span class="brand__icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 26 26" fill="none">
+            <path d="M13 2C13 2 8 5.5 8 11C8 14.5 10 17 13 17C16 17 18 14.5 18 11C18 5.5 13 2 13 2Z" fill="#C3868F"/>
+            <path d="M13 17V24" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M13 21C13 21 9.5 20 8.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M13 21C13 21 16.5 20 17.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand__text">Cozy Corner Planner</span>
+      </a>
+
+      <nav class="nav-links" id="navLinks" aria-label="Navigasi utama">
+        <a href="#features" id="navFeatures">Features</a>
+        <a href="#workflow" id="navWorkflow">Workflow</a>
+        <a href="#journal" id="navJournal">Journal</a>
+        <a href="#habits" id="navHabits">Habits</a>
+        <a href="#faq" id="navFaq">FAQ</a>
+      </nav>
+
+      <div class="navbar__actions" id="navActions">
+        <button class="btn btn--ghost" id="loginBtn">Login</button>
+        <button class="btn btn--primary" id="startPlanningBtn">Start Planning</button>
+      </div>
+
+      <button class="nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ HERO & DASHBOARD ============ -->
+  <section class="hero container">
+    <div class="hero__copy">
+      <p class="eyebrow">A Sanctuary For Your Everyday</p>
+      <h1 class="hero__title">Plan your days, make space for what matters.</h1>
+      <p class="hero__desc">
+        Cozy Corner Planner blends gentle habit tracking, mindful journaling, and a
+        soft daily rhythm — so planning feels like tea time, not a to-do war.
+      </p>
+      <div class="hero__cta">
+        <button class="btn btn--primary btn--lg" id="heroStartBtn">Start Planning Free</button>
+        <button class="btn btn--outline btn--lg" id="heroExploreBtn">Explore Workspaces</button>
+      </div>
+      <div class="hero__trust">
+        <div class="trust-avatars">
+          <span class="trust-avatar">🌸</span>
+          <span class="trust-avatar">☕</span>
+          <span class="trust-avatar">📖</span>
+        </div>
+        <p class="trust-text">Joined by <strong>2,400+ mindful planners</strong> this month.</p>
+      </div>
+    </div>
+
+    <div class="hero__preview">
+      <!-- Dashboard Widget -->
+      <div class="card widget" id="features">
+        <div class="widget__header">
+          <div class="widget__profile">
+            <span class="avatar" id="userAvatar">G</span>
+            <div>
+              <p class="widget__greeting" id="userGreeting">Good Morning, Guest 👋</p>
+              <p class="widget__date" id="widgetCurrentDate">Thursday, September 17</p>
+            </div>
+          </div>
+          <span class="badge badge--mood">Bright</span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <p class="metric__label">Focus Time</p>
+            <p class="metric__value">3h 45m</p>
+          </div>
+          <div class="metric">
+            <p class="metric__label">Habits Completed</p>
+            <p class="metric__value" id="habitMetricVal">0/0</p>
+          </div>
+          <div class="metric">
+            <p class="metric__label">Task Progress</p>
+            <p class="metric__value" id="taskProgress">0%</p>
+          </div>
+        </div>
+
+        <!-- Dynamic To-Do List Header & Container -->
+        <div class="todo-header">
+          <span class="todo-header__title">Daily Tasks</span>
+          <button class="btn btn--sm btn--ghost" id="addTodoBtn">+ Add Task</button>
+        </div>
+        <ul class="todo-list" id="todoList"></ul>
+      </div>
+
+      <!-- Journal Card -->
+      <div class="card journal-card" id="journal">
+        <div class="journal-card__header">
+          <p class="journal-card__prompt">"What made you feel most alive today?"</p>
+          <button class="btn btn--primary btn--sm" id="saveJournalBtn">Save Entry</button>
+        </div>
+        <div class="mood-tags">
+          <button class="pill" data-mood="Peaceful">Peaceful</button>
+          <button class="pill" data-mood="Calm">Calm</button>
+          <button class="pill" data-mood="Creative">Creative</button>
+        </div>
+        <textarea class="journal-card__area" id="journalText" placeholder="Start writing a little something..."></textarea>
+        <span class="journal-card__status" id="journalStatus"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HABIT TRACKER ============ -->
+  <section class="habit-section container" id="habits">
+    <div class="card habit-card">
+      <div class="habit-card__header">
+        <div>
+          <h2 class="habit-card__title">Habit Rhythm</h2>
+          <p class="habit-card__subtitle">Weekly overview — build consistency without pressure.</p>
+        </div>
+        <button class="btn btn--primary" id="addHabitBtn">+ Add New Habit</button>
+      </div>
+
+      <div class="habit-table-wrapper">
+        <div class="habit-table" id="habitTable">
+          <div class="habit-table__row habit-table__row--head">
+            <span class="habit-name-col">Habit Name</span>
+            <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            <span class="habit-action-col">Action</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES HIGHLIGHT GRID ============ -->
+  <section class="features-section container">
+    <div class="section-header">
+      <p class="eyebrow">Designed For Peace Of Mind</p>
+      <h2 class="section-title">Everything you need to stay gently productive</h2>
+    </div>
+    <div class="features-grid">
+      <div class="card feature-card">
+        <div class="feature-icon feature-icon--primary">🌿</div>
+        <h3 class="feature-card__title">Gentle Habit Tracker</h3>
+        <p class="feature-card__desc">Focus on weekly rhythms rather than strict streaks. Missed a day? No red marks, just soft nudges.</p>
+      </div>
+      <div class="card feature-card">
+        <div class="feature-icon feature-icon--lavender">✍️</div>
+        <h3 class="feature-card__title">Mindful Journaling</h3>
+        <p class="feature-card__desc">Expressive prompts and mood tagging help you unwind and archive your daily reflections effortlessly.</p>
+      </div>
+      <div class="card feature-card">
+        <div class="feature-icon feature-icon--green">☁️</div>
+        <h3 class="feature-card__title">Instant Cloud Sync</h3>
+        <p class="feature-card__desc">Powered by real-time database sync so your goals and journals are safe on all your personal devices.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ACCORDION ============ -->
+  <section class="faq-section container" id="faq">
+    <div class="section-header">
+      <p class="eyebrow">Got Questions?</p>
+      <h2 class="section-title">Frequently Asked Questions</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item card">
+        <summary class="faq-question">Apa Cozy Corner Planner ?</summary>
+        <div class="faq-answer">
+          Ya, Anda dapat menikmati fitur Habit Tracker dasar, Todo List, dan Journaling secara gratis. Kami juga menyediakan opsi akun terdaftar untuk menyimpan data Anda secara aman di cloud.
+        </div>
+      </details>
+      <details class="faq-item card">
+        <summary class="faq-question">Bagaimana data saya tersimpan?</summary>
+        <div class="faq-answer">
+          Data Anda disinkronkan secara enkripsi menggunakan layanan Supabase Cloud saat Anda login. Jika belum login, data dasar akan berjalan dalam mode demo lokal.
+        </div>
+      </details>
+      <details class="faq-item card">
+        <summary class="faq-question">Dapatkah saya menggunakannya di smartphone?</summary>
+        <div class="faq-answer">
+          Tentu saja! Cozy Corner Planner didesain dengan pendekatan Mobile-First yang sangat halus di browser HP maupun Tablet tanpa perlu menginstal aplikasi tambahan.
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ MODALS ============ -->
+  <div class="modal-overlay" id="habitModal">
+    <div class="modal">
+      <h3 class="modal__title">Add New Habit</h3>
+      <form id="addHabitForm">
+        <div class="form-group">
+          <label for="habitIconInput">Icon / Emoji</label>
+          <input type="text" id="habitIconInput" maxlength="4" value="✨" required>
+        </div>
+        <div class="form-group">
+          <label for="habitNameInput">Habit Name</label>
+          <input type="text" id="habitNameInput" placeholder="e.g. Meditation 10 mins" required>
+        </div>
+        <div class="form-group">
+          <label>Target Days</label>
+          <div class="days-selector">
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="0" checked><span>M</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="1" checked><span>T</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="2" checked><span>W</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="3" checked><span>T</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="4" checked><span>F</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="5" checked><span>S</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="6" checked><span>S</span></label>
+          </div>
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="closeHabitModalBtn">Cancel</button>
+          <button type="submit" class="btn btn--primary">Save Habit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal">
+      <h3 class="modal__title" id="taskModalTitle">Add Task</h3>
+      <form id="taskForm">
+        <input type="hidden" id="taskIdInput">
+        <div class="form-group">
+          <label for="taskNameInput">Task Name</label>
+          <input type="text" id="taskNameInput" placeholder="e.g. Call with design team" required>
+        </div>
+        <div class="form-group">
+          <label for="taskTimeInput">Badge / Time Info</label>
+          <input type="text" id="taskTimeInput" placeholder="e.g. In Progress or 10:00 AM">
+        </div>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="closeTaskModalBtn">Cancel</button>
+          <button type="submit" class="btn btn--primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="authModal">
+    <div class="modal">
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tabLogin">Login</button>
+        <button type="button" class="auth-tab" id="tabRegister">Register</button>
+      </div>
+      <form id="loginForm" class="auth-form active">
+        <div class="form-group">
+          <label for="loginIdentifier">Email Address</label>
+          <input type="email" id="loginIdentifier" placeholder="@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required>
+        </div>
+        <div class="modal__actions" style="flex-direction:column; gap:8px;">
+          <button type="submit" class="btn btn--primary" style="width:100%;">Sign In</button>
+          <button type="button" class="btn btn--ghost close-auth-modal" style="width:100%;">Batal</button>
+        </div>
+      </form>
+      <form id="registerForm" class="auth-form">
+        <div class="form-group">
+          <label for="regUsername">Username</label>
+          <input type="text" id="regUsername" placeholder="Username" required>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Email (Gmail)</label>
+          <input type="email" id="regEmail" placeholder="@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label for="regPhone">Nomor HP</label>
+          <input type="tel" id="regPhone" placeholder="08 xxxx" required>
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password (Min 6 Karakter)</label>
+          <input type="password" id="regPassword" placeholder="••••••••" required>
+        </div>
+        <div class="modal__actions" style="flex-direction:column; gap:8px;">
+          <button type="submit" class="btn btn--primary" style="width:100%;">Daftar Akun Baru</button>
+          <button type="button" class="btn btn--ghost close-auth-modal" style="width:100%;">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal" style="max-width:500px;">
+      <h3 class="modal__title" id="infoModalTitle">Info</h3>
+      <div id="infoModalContent" style="font-size:0.92rem; color:var(--color-text-soft);"></div>
+      <div class="modal__actions" style="margin-top:20px;">
+        <button type="button" class="btn btn--primary" id="closeInfoModalBtn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <a href="#" class="brand">
+          <span class="brand__text">Cozy Corner Planner</span>
+        </a>
+        <p class="footer__tagline">Crafted for intentional days, gentle habits, and mindful living.</p>
+      </div>
+      <div class="footer__links">
+        <div class="footer__col">
+          <p class="footer__col-title">Navigation</p>
+          <a href="#features">Features</a>
+          <a href="#journal">Journal</a>
+          <a href="#habits">Habit Tracker</a>
+        </div>
+        <div class="footer__col">
+          <p class="footer__col-title">Product</p>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer__bottom container">
+      <p>&copy; 2026 Cozy Corner Planner by <span><a href="https://wa.me/6283167634348">GersDEV</a></span>. Made for slow, intentional days.</p>
+      <div class="footer__status">
+        <span class="status-dot"></span> All Systems Operational
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script>
+</body>
+</html>
