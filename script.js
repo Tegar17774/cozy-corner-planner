@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   var SUPABASE_URL = 'https://udtiljauxgtneboirlgd.supabase.co';
   var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkdGlsamF1eGd0bmVib2lybGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NTY5MzcsImV4cCI6MjEwNTIzMjkzN30.jzP5qdrI5jC-KR9YIQguFxWMQloOJgAIIk1d9_XduhE';
+  var AVATAR_BUCKET = 'avatars';
 
   var supabaseClient = null;
   if (typeof window['supabase'] !== 'undefined') {
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   }
 
   var currentUser = null;
+  var currentProfile = null; // row from public.profiles for currentUser, or null
 
   /* ---------- REAL-TIME DATE UPDATE ---------- */
   var dateEl = document.getElementById('widgetCurrentDate');
@@ -85,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   var taskModal = document.getElementById('taskModal');
   var infoModal = document.getElementById('infoModal');
   var journalDeleteModal = document.getElementById('journalDeleteModal');
+  var profileModal = document.getElementById('profileModal');
 
   function openModal(modalElement) {
     if (modalElement) modalElement.classList.add('is-active');
@@ -229,34 +232,97 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       currentUser = res.data.user;
       closeModal(authModal);
-      updateUIUser(currentUser);
+      await loadProfile();
+      updateUIUser(currentUser, currentProfile);
       loadHabits();
       loadJournal();
       showToast('Berhasil Login! Selamat datang.', '🌿');
     };
   }
 
-  function updateUIUser(userObj) {
-    var btn = document.getElementById('loginBtn');
-    if (btn) {
-      btn.textContent = 'Logout';
-      btn.onclick = async function () {
-        if (supabaseClient) await supabaseClient.auth.signOut();
-        location.reload();
-      };
+  /* ---------- NAVBAR USER MENU ---------- */
+  var loginBtn = document.getElementById('loginBtn');
+  var userMenu = document.getElementById('userMenu');
+  var userMenuTrigger = document.getElementById('userMenuTrigger');
+  var userMenuDropdown = document.getElementById('userMenuDropdown');
+
+  function closeUserMenuDropdown() {
+    if (userMenuDropdown) userMenuDropdown.classList.remove('is-open');
+    if (userMenuTrigger) userMenuTrigger.setAttribute('aria-expanded', 'false');
+  }
+
+  userMenuTrigger?.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (!userMenuDropdown) return;
+    var isOpen = userMenuDropdown.classList.toggle('is-open');
+    userMenuTrigger.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  document.addEventListener('click', function (e) {
+    var target = /** @type {Element} */ (e.target);
+    if (userMenuDropdown && userMenuDropdown.classList.contains('is-open') && userMenu && !userMenu.contains(target)) {
+      closeUserMenuDropdown();
+    }
+  });
+
+  document.getElementById('logoutBtn')?.addEventListener('click', async function () {
+    closeUserMenuDropdown();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    location.reload();
+  });
+
+  document.getElementById('openProfileSettingsBtn')?.addEventListener('click', function () {
+    closeUserMenuDropdown();
+    openProfileModal();
+  });
+
+  /**
+   * Reflects the logged-in user across the navbar avatar/name, the user
+   * menu, and the hero dashboard widget greeting. Prefers profile data
+   * (display name / username / avatar) but falls back gracefully to the
+   * auth user's metadata/email so existing behavior never breaks.
+   */
+  function updateUIUser(userObj, profile) {
+    if (!userObj) return;
+
+    var displayLabel = null;
+    if (profile && (profile.display_name || profile.username)) {
+      displayLabel = profile.display_name || profile.username;
+    } else if (userObj.user_metadata && userObj.user_metadata.username) {
+      displayLabel = userObj.user_metadata.username;
+    } else if (userObj.email) {
+      displayLabel = userObj.email.split('@')[0];
     }
 
+    var avatarUrl = profile && profile.avatar_url ? profile.avatar_url : null;
+    var avatarLetter = displayLabel ? displayLabel.charAt(0).toUpperCase() : 'G';
+
+    // Hero dashboard widget
     var greetingEl = document.getElementById('userGreeting');
     var avatarEl = document.getElementById('userAvatar');
+    if (greetingEl && displayLabel) greetingEl.textContent = 'Welcome, ' + displayLabel + ' 👋';
+    applyAvatarVisual(avatarEl, avatarUrl, avatarLetter);
 
-    if (userObj && userObj.user_metadata && userObj.user_metadata.username) {
-      var name = userObj.user_metadata.username;
-      if (greetingEl) greetingEl.textContent = 'Welcome, ' + name + ' 👋';
-      if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
-    } else if (userObj && userObj.email) {
-      var emailName = userObj.email.split('@')[0];
-      if (greetingEl) greetingEl.textContent = 'Welcome, ' + emailName + ' 👋';
-      if (avatarEl) avatarEl.textContent = emailName.charAt(0).toUpperCase();
+    // Navbar: hide plain Login button, show the user menu
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (userMenu) userMenu.style.display = 'flex';
+
+    var navAvatar = document.getElementById('navUserAvatar');
+    var navName = document.getElementById('navUserName');
+    if (navName && displayLabel) navName.textContent = displayLabel;
+    applyAvatarVisual(navAvatar, avatarUrl, avatarLetter);
+  }
+
+  function applyAvatarVisual(el, avatarUrl, letter) {
+    if (!el) return;
+    if (avatarUrl) {
+      el.style.backgroundImage = 'url(' + avatarUrl + ')';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.textContent = '';
+    } else {
+      el.style.backgroundImage = '';
+      el.textContent = letter;
     }
   }
 
@@ -853,21 +919,408 @@ document.addEventListener('DOMContentLoaded', async function () {
   });
 
   /* ==========================================================================
+     PROFILE & ACCOUNT SETTINGS — Supabase Auth + Storage + `profiles` table
+     ========================================================================== */
+
+  var profileAvatarImg = /** @type {HTMLImageElement} */ (document.getElementById('profileAvatarImg'));
+  var profileAvatarFallback = document.getElementById('profileAvatarFallback');
+  var avatarFileInput = /** @type {HTMLInputElement} */ (document.getElementById('avatarFileInput'));
+  var removeAvatarBtn = document.getElementById('removeAvatarBtn');
+
+  var profileUsernameInput = /** @type {HTMLInputElement} */ (document.getElementById('profileUsernameInput'));
+  var profileEmailInput = /** @type {HTMLInputElement} */ (document.getElementById('profileEmailInput'));
+  var usernameMsg = document.getElementById('usernameMsg');
+  var emailMsg = document.getElementById('emailMsg');
+
+  var togglePasswordFormBtn = document.getElementById('togglePasswordFormBtn');
+  var passwordChangeForm = document.getElementById('passwordChangeForm');
+  var currentPasswordInput = /** @type {HTMLInputElement} */ (document.getElementById('currentPasswordInput'));
+  var newPasswordInput = /** @type {HTMLInputElement} */ (document.getElementById('newPasswordInput'));
+  var confirmPasswordInput = /** @type {HTMLInputElement} */ (document.getElementById('confirmPasswordInput'));
+  var passwordMsg = document.getElementById('passwordMsg');
+  var updatePasswordBtn = document.getElementById('updatePasswordBtn');
+
+  var displayNameInput = /** @type {HTMLInputElement} */ (document.getElementById('displayNameInput'));
+  var bioInput = /** @type {HTMLTextAreaElement} */ (document.getElementById('bioInput'));
+  var locationInput = /** @type {HTMLInputElement} */ (document.getElementById('locationInput'));
+  var birthdayInput = /** @type {HTMLInputElement} */ (document.getElementById('birthdayInput'));
+
+  var saveProfileBtn = document.getElementById('saveProfileBtn');
+
+  function setFieldMsg(el, msg, isError) {
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('field-msg--error', !!isError);
+    el.classList.toggle('field-msg--success', !isError && !!msg);
+  }
+
+  function setAvatarPreview(url) {
+    if (!profileAvatarImg || !profileAvatarFallback) return;
+    if (url) {
+      profileAvatarImg.src = url;
+      profileAvatarImg.style.display = 'block';
+      profileAvatarFallback.style.display = 'none';
+    } else {
+      profileAvatarImg.style.display = 'none';
+      profileAvatarFallback.style.display = 'flex';
+      var label = (currentProfile && (currentProfile.display_name || currentProfile.username)) ||
+                  (currentUser && currentUser.email) || 'G';
+      profileAvatarFallback.textContent = label.charAt(0).toUpperCase();
+    }
+  }
+
+  function setAvatarActionsBusy(isBusy) {
+    var changeLabel = document.querySelector('label[for="avatarFileInput"]');
+    if (changeLabel) changeLabel.classList.toggle('is-disabled', isBusy);
+    if (removeAvatarBtn) removeAvatarBtn.disabled = isBusy;
+    if (avatarFileInput) avatarFileInput.disabled = isBusy;
+  }
+
+  /**
+   * Fetches the current user's profile row, creating one on first login if
+   * it doesn't exist yet (keeps the username already stored at sign-up).
+   */
+  async function loadProfile() {
+    if (!currentUser || !supabaseClient) {
+      currentProfile = null;
+      return null;
+    }
+    try {
+      var res = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      if (res.error) throw res.error;
+
+      if (res.data) {
+        currentProfile = res.data;
+      } else {
+        var fallbackUsername = (currentUser.user_metadata && currentUser.user_metadata.username) || null;
+        var insertRes = await supabaseClient
+          .from('profiles')
+          .insert([{ user_id: currentUser.id, username: fallbackUsername }])
+          .select()
+          .single();
+        currentProfile = insertRes.error ? null : insertRes.data;
+      }
+    } catch (err) {
+      console.warn('Failed to load profile:', err);
+      currentProfile = null;
+    }
+    return currentProfile;
+  }
+
+  async function isUsernameTaken(username) {
+    var res = await supabaseClient
+      .from('profiles')
+      .select('user_id')
+      .eq('username', username)
+      .neq('user_id', currentUser.id)
+      .maybeSingle();
+    if (res.error) throw res.error;
+    return !!res.data;
+  }
+
+  function openProfileModal() {
+    if (!currentUser) { openModal(authModal); return; }
+
+    if (profileUsernameInput) profileUsernameInput.value = (currentProfile && currentProfile.username) || '';
+    if (profileEmailInput) profileEmailInput.value = currentUser.email || '';
+    if (displayNameInput) displayNameInput.value = (currentProfile && currentProfile.display_name) || '';
+    if (bioInput) bioInput.value = (currentProfile && currentProfile.bio) || '';
+    if (locationInput) locationInput.value = (currentProfile && currentProfile.location) || '';
+    if (birthdayInput) birthdayInput.value = (currentProfile && currentProfile.birthday) || '';
+
+    setAvatarPreview(currentProfile && currentProfile.avatar_url ? currentProfile.avatar_url : null);
+
+    if (passwordChangeForm) passwordChangeForm.style.display = 'none';
+    if (currentPasswordInput) currentPasswordInput.value = '';
+    if (newPasswordInput) newPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
+    setFieldMsg(passwordMsg, '', false);
+    setFieldMsg(usernameMsg, '', false);
+    setFieldMsg(emailMsg, '', false);
+
+    openModal(profileModal);
+  }
+
+  document.getElementById('closeProfileModalBtn')?.addEventListener('click', function () { closeModal(profileModal); });
+  document.getElementById('closeProfileModalBtn2')?.addEventListener('click', function () { closeModal(profileModal); });
+
+  /* ----- Profile Photo (Supabase Storage) ----- */
+
+  function validateAvatarFile(file) {
+    var allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowed.indexOf(file.type) === -1) return 'Only JPG, PNG, or WebP images are allowed.';
+    var maxSize = 3 * 1024 * 1024; // 3MB
+    if (file.size > maxSize) return 'Image must be smaller than 3MB.';
+    return null;
+  }
+
+  async function uploadAvatar(file) {
+    if (!currentUser || !supabaseClient) return;
+
+    var validationError = validateAvatarFile(file);
+    if (validationError) {
+      showToast(validationError, '⚠️');
+      return;
+    }
+
+    // Instant local preview while the upload runs
+    var localPreviewUrl = URL.createObjectURL(file);
+    setAvatarPreview(localPreviewUrl);
+    setAvatarActionsBusy(true);
+
+    try {
+      var ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      var storagePath = currentUser.id + '/profile.' + ext;
+
+      var uploadRes = await supabaseClient
+        .storage
+        .from(AVATAR_BUCKET)
+        .upload(storagePath, file, { upsert: true, cacheControl: '3600' });
+
+      if (uploadRes.error) throw uploadRes.error;
+
+      var publicUrlRes = supabaseClient.storage.from(AVATAR_BUCKET).getPublicUrl(storagePath);
+      var publicUrl = publicUrlRes.data.publicUrl + '?t=' + Date.now(); // cache-bust so the new photo shows immediately
+
+      var upsertRes = await supabaseClient
+        .from('profiles')
+        .upsert({ user_id: currentUser.id, avatar_url: publicUrl }, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+      if (upsertRes.error) throw upsertRes.error;
+
+      currentProfile = upsertRes.data;
+      setAvatarPreview(publicUrl);
+      updateUIUser(currentUser, currentProfile);
+      showToast('Profile photo updated', '🖼️');
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+      setAvatarPreview(currentProfile && currentProfile.avatar_url ? currentProfile.avatar_url : null);
+      showToast('Failed to upload photo. Please try again.', '⚠️');
+    } finally {
+      setAvatarActionsBusy(false);
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+  }
+
+  async function removeAvatar() {
+    if (!currentUser || !supabaseClient) return;
+    if (!currentProfile || !currentProfile.avatar_url) {
+      showToast('No profile photo to remove.', 'ℹ️');
+      return;
+    }
+
+    setAvatarActionsBusy(true);
+    try {
+      var listRes = await supabaseClient.storage.from(AVATAR_BUCKET).list(currentUser.id);
+      if (listRes.data && listRes.data.length > 0) {
+        var pathsToRemove = listRes.data.map(function (f) { return currentUser.id + '/' + f.name; });
+        await supabaseClient.storage.from(AVATAR_BUCKET).remove(pathsToRemove);
+      }
+
+      var upsertRes = await supabaseClient
+        .from('profiles')
+        .upsert({ user_id: currentUser.id, avatar_url: null }, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+      if (upsertRes.error) throw upsertRes.error;
+
+      currentProfile = upsertRes.data;
+      setAvatarPreview(null);
+      updateUIUser(currentUser, currentProfile);
+      showToast('Profile photo removed', '🗑️');
+    } catch (err) {
+      console.error('Failed to remove avatar:', err);
+      showToast('Failed to remove photo. Please try again.', '⚠️');
+    } finally {
+      setAvatarActionsBusy(false);
+    }
+  }
+
+  avatarFileInput?.addEventListener('change', function (e) {
+    var target = /** @type {HTMLInputElement} */ (e.target);
+    var file = target.files && target.files[0];
+    if (file) uploadAvatar(file);
+    target.value = ''; // allow re-selecting the same file later
+  });
+
+  removeAvatarBtn?.addEventListener('click', removeAvatar);
+
+  /* ----- Password visibility toggles ----- */
+  document.querySelectorAll('.password-toggle-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var targetId = btn.getAttribute('data-target');
+      var input = targetId ? document.getElementById(targetId) : null;
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    });
+  });
+
+  /* ----- Change Password (Supabase Auth) ----- */
+
+  togglePasswordFormBtn?.addEventListener('click', function () {
+    if (!passwordChangeForm) return;
+    var isVisible = passwordChangeForm.style.display !== 'none';
+    passwordChangeForm.style.display = isVisible ? 'none' : 'block';
+  });
+
+  updatePasswordBtn?.addEventListener('click', async function () {
+    if (!currentUser || !supabaseClient) return;
+
+    var currentPass = currentPasswordInput ? currentPasswordInput.value : '';
+    var newPass = newPasswordInput ? newPasswordInput.value : '';
+    var confirmPass = confirmPasswordInput ? confirmPasswordInput.value : '';
+
+    if (!currentPass || !newPass || !confirmPass) {
+      setFieldMsg(passwordMsg, 'Please fill in all password fields.', true);
+      return;
+    }
+    if (newPass.length < 6) {
+      setFieldMsg(passwordMsg, 'New password must be at least 6 characters.', true);
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setFieldMsg(passwordMsg, 'New password and confirmation do not match.', true);
+      return;
+    }
+
+    updatePasswordBtn.disabled = true;
+    var originalLabel = updatePasswordBtn.textContent;
+    updatePasswordBtn.textContent = 'Updating...';
+
+    try {
+      // Verify the current password by re-authenticating before changing it
+      var reauth = await supabaseClient.auth.signInWithPassword({
+        email: currentUser.email,
+        password: currentPass
+      });
+      if (reauth.error) {
+        setFieldMsg(passwordMsg, 'Current password is incorrect.', true);
+        return;
+      }
+
+      var res = await supabaseClient.auth.updateUser({ password: newPass });
+      if (res.error) throw res.error;
+
+      setFieldMsg(passwordMsg, 'Password updated successfully.', false);
+      if (currentPasswordInput) currentPasswordInput.value = '';
+      if (newPasswordInput) newPasswordInput.value = '';
+      if (confirmPasswordInput) confirmPasswordInput.value = '';
+      showToast('Password updated successfully.', '🔒');
+    } catch (err) {
+      console.error('Failed to update password:', err);
+      setFieldMsg(passwordMsg, 'Failed to update password. Please try again.', true);
+    } finally {
+      updatePasswordBtn.disabled = false;
+      updatePasswordBtn.textContent = originalLabel;
+    }
+  });
+
+  /* ----- Save Changes: username, display name, bio, location, birthday, email ----- */
+
+  saveProfileBtn?.addEventListener('click', async function () {
+    if (!currentUser || !supabaseClient) return;
+
+    var username = profileUsernameInput ? profileUsernameInput.value.trim() : '';
+    var newEmail = profileEmailInput ? profileEmailInput.value.trim() : '';
+    var displayName = displayNameInput ? displayNameInput.value.trim() : '';
+    var bio = bioInput ? bioInput.value.trim() : '';
+    var location = locationInput ? locationInput.value.trim() : '';
+    var birthday = birthdayInput && birthdayInput.value ? birthdayInput.value : null;
+
+    setFieldMsg(usernameMsg, '', false);
+    setFieldMsg(emailMsg, '', false);
+
+    if (!username) {
+      setFieldMsg(usernameMsg, 'Username cannot be empty.', true);
+      return;
+    }
+
+    saveProfileBtn.disabled = true;
+    var originalLabel = saveProfileBtn.textContent;
+    saveProfileBtn.textContent = 'Saving...';
+
+    try {
+      // Only check uniqueness if the username actually changed
+      if (!currentProfile || username !== currentProfile.username) {
+        var taken = await isUsernameTaken(username);
+        if (taken) {
+          setFieldMsg(usernameMsg, 'Username is already taken.', true);
+          return; // keep the previously saved username untouched
+        }
+      }
+
+      var upsertRes = await supabaseClient
+        .from('profiles')
+        .upsert({
+          user_id: currentUser.id,
+          username: username,
+          display_name: displayName || null,
+          bio: bio || null,
+          location: location || null,
+          birthday: birthday
+        }, { onConflict: 'user_id' })
+        .select()
+        .single();
+
+      if (upsertRes.error) throw upsertRes.error;
+      currentProfile = upsertRes.data;
+
+      // Email change goes through Supabase Auth, not the profiles table
+      if (newEmail && newEmail !== currentUser.email) {
+        var emailRes = await supabaseClient.auth.updateUser({ email: newEmail });
+        if (emailRes.error) {
+          setFieldMsg(emailMsg, 'Failed to change email: ' + emailRes.error.message, true);
+          showToast('Profile saved, but email change failed.', '⚠️');
+        } else {
+          setFieldMsg(emailMsg, 'A confirmation email has been sent to your new email address. Please check your inbox to confirm the change.', false);
+          showToast('Confirmation email sent to your new address.', '📧');
+        }
+      } else {
+        showToast('Profile updated successfully.', '✅');
+      }
+
+      updateUIUser(currentUser, currentProfile);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      showToast('Failed to update profile. Please try again.', '⚠️');
+    } finally {
+      saveProfileBtn.disabled = false;
+      saveProfileBtn.textContent = originalLabel;
+    }
+  });
+
+  /* ==========================================================================
      INITIAL SESSION LOAD
      Runs LAST, after every element reference (habitTable, journalHistoryList,
-     etc.) and every load-and-render function above has been defined and
-     wired up. This fixes the refresh bug: previously this ran near the top of the
-     script, right after an `await`, before journalHistoryList/habitTable had
-     been assigned yet — so loadJournal()/loadHabits() silently no-opped on
-     the very first page load and only "worked" after a save re-triggered
-     them once the whole script had finished running.
+     profile inputs, etc.) and every load-and-render function above has been
+     defined and wired up. This fixes the refresh bug: previously this ran
+     near the top of the script, right after an `await`, before
+     journalHistoryList/habitTable had been assigned yet — so
+     loadJournal()/loadHabits() silently no-opped on the very first page load
+     and only "worked" after a save re-triggered them once the whole script
+     had finished running.
      ========================================================================== */
   if (supabaseClient) {
     try {
       var sessionRes = await supabaseClient.auth.getSession();
       if (sessionRes.data && sessionRes.data.session) {
         currentUser = sessionRes.data.session.user;
-        updateUIUser(currentUser);
+        await loadProfile();
+        updateUIUser(currentUser, currentProfile);
         await loadHabits();
         await loadJournal();
       } else {
