@@ -44,29 +44,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     }, 3000);
   }
 
-  /* ---------- INITIAL SESSION LOAD ---------- */
-  if (supabaseClient) {
-    try {
-      var sessionRes = await supabaseClient.auth.getSession();
-      if (sessionRes.data && sessionRes.data.session) {
-        currentUser = sessionRes.data.session.user;
-        updateUIUser(currentUser);
-        loadHabits();
-        loadJournal();
-      } else {
-        loadDefaultHabits();
-        renderJournalHistoryLoginRequired();
-      }
-    } catch (e) {
-      console.warn('Auth session check failed, using local mode:', e);
-      loadDefaultHabits();
-      renderJournalHistoryLoginRequired();
-    }
-  } else {
-    loadDefaultHabits();
-    renderJournalHistoryLoginRequired();
-  }
-
   /* ---------- MOBILE MENU TOGGLE ---------- */
   var navToggle = document.getElementById('navToggle');
   var navLinks = document.getElementById('navLinks');
@@ -864,15 +841,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
       if (res.error) throw res.error;
 
-      journalsData = journalsData.filter(function (j) { return j.id !== idToDelete; });
-
-      if (journalsData.length === 0) {
-        renderJournalHistoryEmpty();
-      } else {
-        renderJournalCards();
-      }
-
       showToast('Journal deleted', '🗑️');
+      await loadJournal(); // re-fetch from Supabase so the list stays the source of truth
     } catch (err) {
       console.error('Failed to delete journal:', err);
       showToast('Unable to delete your journal.', '⚠️');
@@ -881,5 +851,37 @@ document.addEventListener('DOMContentLoaded', async function () {
       closeModal(journalDeleteModal);
     }
   });
+
+  /* ==========================================================================
+     INITIAL SESSION LOAD
+     Runs LAST, after every element reference (habitTable, journalHistoryList,
+     etc.) and every load-and-render function above has been defined and
+     wired up. This fixes the refresh bug: previously this ran near the top of the
+     script, right after an `await`, before journalHistoryList/habitTable had
+     been assigned yet — so loadJournal()/loadHabits() silently no-opped on
+     the very first page load and only "worked" after a save re-triggered
+     them once the whole script had finished running.
+     ========================================================================== */
+  if (supabaseClient) {
+    try {
+      var sessionRes = await supabaseClient.auth.getSession();
+      if (sessionRes.data && sessionRes.data.session) {
+        currentUser = sessionRes.data.session.user;
+        updateUIUser(currentUser);
+        await loadHabits();
+        await loadJournal();
+      } else {
+        loadDefaultHabits();
+        renderJournalHistoryLoginRequired();
+      }
+    } catch (e) {
+      console.warn('Auth session check failed, using local mode:', e);
+      loadDefaultHabits();
+      renderJournalHistoryLoginRequired();
+    }
+  } else {
+    loadDefaultHabits();
+    renderJournalHistoryLoginRequired();
+  }
 
 });
