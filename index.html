@@ -9,7 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
 </head>
 <body>
 
@@ -52,7 +51,7 @@
 
   <!-- ============ HERO & DASHBOARD ============ -->
   <section class="hero container">
-    <div class="hero__copy">
+    <div class="hero__copy fade-in-up">
       <p class="eyebrow">A Sanctuary For Your Everyday</p>
       <h1 class="hero__title">Plan your days, make space for what matters.</h1>
       <p class="hero__desc">
@@ -73,9 +72,9 @@
       </div>
     </div>
 
-    <div class="hero__preview">
+    <div class="hero__preview fade-in-up fade-in-up--delay">
       <!-- Dashboard Widget -->
-      <div class="card widget" id="features">
+      <div class="card widget widget--float" id="features">
         <div class="widget__header">
           <div class="widget__profile">
             <span class="avatar" id="userAvatar">G</span>
@@ -110,20 +109,34 @@
         <ul class="todo-list" id="todoList"></ul>
       </div>
 
-      <!-- Journal Card -->
+      <!-- Journal Composer Card -->
       <div class="card journal-card" id="journal">
         <div class="journal-card__header">
           <p class="journal-card__prompt">"What made you feel most alive today?"</p>
-          <button class="btn btn--primary btn--sm" id="saveJournalBtn">Save Entry</button>
+          <div class="journal-card__header-actions">
+            <button class="btn btn--ghost btn--sm" id="cancelEditJournalBtn" style="display:none;">Cancel Edit</button>
+            <button class="btn btn--primary btn--sm" id="saveJournalBtn">Save Entry</button>
+          </div>
         </div>
         <div class="mood-tags">
-          <button class="pill" data-mood="Peaceful">Peaceful</button>
-          <button class="pill" data-mood="Calm">Calm</button>
-          <button class="pill" data-mood="Creative">Creative</button>
+          <button class="pill" data-mood="Peaceful">🌿 Peaceful</button>
+          <button class="pill" data-mood="Calm">☁️ Calm</button>
+          <button class="pill" data-mood="Creative">✨ Creative</button>
         </div>
         <textarea class="journal-card__area" id="journalText" placeholder="Start writing a little something..."></textarea>
         <span class="journal-card__status" id="journalStatus"></span>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ JOURNAL HISTORY ============ -->
+  <section class="journal-history-section container">
+    <div class="section-header">
+      <p class="eyebrow">Your Reflections</p>
+      <h2 class="section-title">Your Journal</h2>
+    </div>
+    <div class="journal-history-list" id="journalHistoryList">
+      <!-- Populated dynamically: loading / empty / login-required / entries -->
     </div>
   </section>
 
@@ -308,6 +321,17 @@
       <div id="infoModalContent" style="font-size:0.92rem; color:var(--color-text-soft);"></div>
       <div class="modal__actions" style="margin-top:20px;">
         <button type="button" class="btn btn--primary" id="closeInfoModalBtn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="journalDeleteModal">
+    <div class="modal" style="max-width:400px;">
+      <h3 class="modal__title">Delete this journal entry?</h3>
+      <p style="color:var(--color-text-soft); font-size:0.92rem; margin:0 0 24px;">This action can't be undone — the entry will be permanently removed.</p>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="cancelDeleteJournalBtn">Cancel</button>
+        <button type="button" class="btn btn--primary btn--danger" id="confirmDeleteJournalBtn">Delete</button>
       </div>
     </div>
   </div>
