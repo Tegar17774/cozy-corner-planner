@@ -41,6 +41,21 @@
       <div class="navbar__actions" id="navActions">
         <button class="btn btn--ghost" id="loginBtn">Login</button>
         <button class="btn btn--primary" id="startPlanningBtn">Start Planning</button>
+
+        <!-- User menu: shown instead of Login once a session is active -->
+        <div class="user-menu" id="userMenu">
+          <button class="user-menu__trigger" id="userMenuTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="avatar avatar--sm" id="navUserAvatar">G</span>
+            <span class="user-menu__name" id="navUserName">Guest</span>
+            <svg class="user-menu__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="user-menu__dropdown" id="userMenuDropdown">
+            <button class="user-menu__item" id="openProfileSettingsBtn" type="button">⚙️ Profile Settings</button>
+            <button class="user-menu__item user-menu__item--danger" id="logoutBtn" type="button">🚪 Logout</button>
+          </div>
+        </div>
       </div>
 
       <button class="nav-toggle" id="navToggle" aria-label="Buka menu" aria-expanded="false">
@@ -332,6 +347,104 @@
       <div class="modal__actions">
         <button type="button" class="btn btn--ghost" id="cancelDeleteJournalBtn">Cancel</button>
         <button type="button" class="btn btn--primary btn--danger" id="confirmDeleteJournalBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE SETTINGS MODAL ============ -->
+  <div class="modal-overlay" id="profileModal">
+    <div class="modal profile-modal">
+      <div class="profile-modal__header">
+        <h3 class="modal__title">Profile Settings</h3>
+        <button type="button" class="btn-icon" id="closeProfileModalBtn" aria-label="Close">✕</button>
+      </div>
+
+      <div class="profile-modal__body">
+
+        <!-- Profile Picture -->
+        <div class="profile-avatar-section">
+          <div class="profile-avatar-preview">
+            <img id="profileAvatarImg" src="" alt="Profile photo" style="display:none;">
+            <span id="profileAvatarFallback" class="avatar profile-avatar-fallback">G</span>
+          </div>
+          <div class="profile-avatar-actions">
+            <label class="btn btn--outline btn--sm" for="avatarFileInput">Change Profile Photo</label>
+            <input type="file" id="avatarFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+            <button type="button" class="btn btn--ghost btn--sm" id="removeAvatarBtn">Remove</button>
+          </div>
+          <p class="profile-avatar-hint">JPG, PNG or WebP · Max 3MB</p>
+        </div>
+
+        <!-- Account Information -->
+        <div class="profile-section">
+          <p class="profile-section__title">Account Information</p>
+
+          <div class="form-group">
+            <label for="profileUsernameInput">Username</label>
+            <input type="text" id="profileUsernameInput" placeholder="username">
+            <span class="field-msg" id="usernameMsg"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="profileEmailInput">Email</label>
+            <input type="email" id="profileEmailInput" placeholder="you@gmail.com">
+            <span class="field-msg" id="emailMsg"></span>
+          </div>
+
+          <div class="form-group">
+            <button type="button" class="btn btn--outline btn--sm" id="togglePasswordFormBtn">Change Password</button>
+          </div>
+
+          <div class="password-change-form" id="passwordChangeForm" style="display:none;">
+            <div class="form-group password-field">
+              <label for="currentPasswordInput">Current Password</label>
+              <input type="password" id="currentPasswordInput" placeholder="••••••••">
+              <button type="button" class="password-toggle-btn" data-target="currentPasswordInput">👁</button>
+            </div>
+            <div class="form-group password-field">
+              <label for="newPasswordInput">New Password</label>
+              <input type="password" id="newPasswordInput" placeholder="••••••••">
+              <button type="button" class="password-toggle-btn" data-target="newPasswordInput">👁</button>
+            </div>
+            <div class="form-group password-field">
+              <label for="confirmPasswordInput">Confirm New Password</label>
+              <input type="password" id="confirmPasswordInput" placeholder="••••••••">
+              <button type="button" class="password-toggle-btn" data-target="confirmPasswordInput">👁</button>
+            </div>
+            <span class="field-msg" id="passwordMsg"></span>
+            <button type="button" class="btn btn--primary btn--sm" id="updatePasswordBtn">Update Password</button>
+          </div>
+        </div>
+
+        <!-- Profile Details -->
+        <div class="profile-section">
+          <p class="profile-section__title">Profile Details</p>
+
+          <div class="form-group">
+            <label for="displayNameInput">Display Name</label>
+            <input type="text" id="displayNameInput" placeholder="How should we greet you?">
+          </div>
+
+          <div class="form-group">
+            <label for="bioInput">Bio</label>
+            <textarea id="bioInput" class="journal-card__area" style="min-height:70px;" placeholder="Write something about yourself..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="locationInput">Location</label>
+            <input type="text" id="locationInput" placeholder="e.g. Medan, Indonesia">
+          </div>
+
+          <div class="form-group">
+            <label for="birthdayInput">Birthday</label>
+            <input type="date" id="birthdayInput">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="closeProfileModalBtn2">Cancel</button>
+        <button type="button" class="btn btn--primary" id="saveProfileBtn">Save Changes</button>
       </div>
     </div>
   </div>
