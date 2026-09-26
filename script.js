@@ -3,10 +3,10 @@
    ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', async function () {
-  
+
   var SUPABASE_URL = 'https://udtiljauxgtneboirlgd.supabase.co';
   var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkdGlsamF1eGd0bmVib2lybGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NTY5MzcsImV4cCI6MjEwNTIzMjkzN30.jzP5qdrI5jC-KR9YIQguFxWMQloOJgAIIk1d9_XduhE';
-  
+
   var supabaseClient = null;
   if (typeof window['supabase'] !== 'undefined') {
     try {
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     var toast = document.createElement('div');
     toast.className = 'toast';
     toast.innerHTML = '<span>' + (emoji || '✨') + '</span> <span>' + message + '</span>';
-    
+
     container.appendChild(toast);
 
     setTimeout(function () {
@@ -55,13 +55,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         loadJournal();
       } else {
         loadDefaultHabits();
+        renderJournalHistoryLoginRequired();
       }
     } catch (e) {
       console.warn('Auth session check failed, using local mode:', e);
       loadDefaultHabits();
+      renderJournalHistoryLoginRequired();
     }
   } else {
     loadDefaultHabits();
+    renderJournalHistoryLoginRequired();
   }
 
   /* ---------- MOBILE MENU TOGGLE ---------- */
@@ -104,6 +107,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   var habitModal = document.getElementById('habitModal');
   var taskModal = document.getElementById('taskModal');
   var infoModal = document.getElementById('infoModal');
+  var journalDeleteModal = document.getElementById('journalDeleteModal');
 
   function openModal(modalElement) {
     if (modalElement) modalElement.classList.add('is-active');
@@ -307,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       var badgeClass = task.checked ? 'badge--done' : (isTimeBadge ? 'badge--time' : 'badge--progress');
       var badgeText = task.checked ? 'Done' : task.badge;
 
-      li.innerHTML = 
+      li.innerHTML =
         '<button class="checkbox ' + (task.checked ? 'is-checked' : '') + '" aria-label="Toggle task"></button>' +
         '<span class="todo-item__name">' + task.name + '</span>' +
         '<button class="badge ' + badgeClass + ' status-toggle">' + badgeText + '</button>' +
@@ -562,11 +566,11 @@ document.addEventListener('DOMContentLoaded', async function () {
       if (currentUser && supabaseClient) {
         var res = await supabaseClient
           .from('habits')
-          .insert([{ 
-            user_id: currentUser.id, 
-            habit_name: fullName, 
+          .insert([{
+            user_id: currentUser.id,
+            habit_name: fullName,
             completed_days: completedDays,
-            active_days: activeDays 
+            active_days: activeDays
           }])
           .select();
 
@@ -585,7 +589,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       }
 
       closeModal(habitModal);
-      
+
       // Reset Form Input
       if (nameInput) nameInput.value = '';
     } catch (err) {
@@ -594,45 +598,288 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
-  /* ---------- JOURNAL & MOOD ---------- */
+  /* ==========================================================================
+     JOURNAL SYSTEM (Composer + History) — Supabase-backed, per-user
+     ========================================================================== */
+
+  var journalText = /** @type {HTMLTextAreaElement} */ (document.getElementById('journalText'));
+  var saveJournalBtn = document.getElementById('saveJournalBtn');
+  var cancelEditJournalBtn = document.getElementById('cancelEditJournalBtn');
+  var journalHistoryList = document.getElementById('journalHistoryList');
+  var journalStatusEl = document.getElementById('journalStatus');
+
   var moodPills = document.querySelectorAll('.mood-tags .pill');
+  var selectedMood = null;         // currently selected mood in the composer
+  var editingJournalId = null;     // non-null while editing an existing entry
+  var journalsData = [];           // in-memory cache of the current user's journals
+  var journalIdPendingDelete = null;
+
+  var MOOD_EMOJI = { Peaceful: '🌿', Calm: '☁️', Creative: '✨' };
+
+  function moodEmoji(mood) {
+    return MOOD_EMOJI[mood] || '📝';
+  }
+
+  function formatJournalTimestamp(iso) {
+    var d = new Date(iso);
+    var dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    var timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return dateStr + ' · ' + timeStr;
+  }
+
+  // Mood pill selection (toggleable, optional)
   moodPills.forEach(function (p) {
     /** @type {HTMLElement} */ (p).onclick = function () {
-      moodPills.forEach(function(pill){ pill.classList.remove('pill--active'); });
-      p.classList.add('pill--active');
+      var moodVal = p.getAttribute('data-mood');
+      if (selectedMood === moodVal) {
+        selectedMood = null;
+        p.classList.remove('pill--active');
+      } else {
+        selectedMood = moodVal;
+        moodPills.forEach(function (pill) { pill.classList.remove('pill--active'); });
+        p.classList.add('pill--active');
+      }
     };
   });
 
-  var journalText = /** @type {HTMLTextAreaElement} */ (document.getElementById('journalText'));
+  function resetJournalComposer() {
+    editingJournalId = null;
+    if (journalText) journalText.value = '';
+    selectedMood = null;
+    moodPills.forEach(function (p) { p.classList.remove('pill--active'); });
+    if (saveJournalBtn) saveJournalBtn.textContent = 'Save Entry';
+    if (cancelEditJournalBtn) cancelEditJournalBtn.style.display = 'none';
+  }
+
+  function startEditJournal(entry) {
+    editingJournalId = entry.id;
+    if (journalText) journalText.value = entry.content;
+    selectedMood = entry.mood || null;
+    moodPills.forEach(function (p) {
+      p.classList.toggle('pill--active', p.getAttribute('data-mood') === selectedMood);
+    });
+    if (saveJournalBtn) saveJournalBtn.textContent = 'Update Entry';
+    if (cancelEditJournalBtn) cancelEditJournalBtn.style.display = 'inline-flex';
+    document.getElementById('journal')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  cancelEditJournalBtn?.addEventListener('click', function () {
+    resetJournalComposer();
+  });
+
+  /* ---------- RENDER STATES ---------- */
+
+  function renderJournalHistoryLoginRequired() {
+    if (!journalHistoryList) return;
+    journalHistoryList.innerHTML =
+      '<div class="journal-empty-state">' +
+        '<span class="journal-empty-state__icon">📖</span>' +
+        '<p class="journal-empty-state__title">Login to see your personal journal history.</p>' +
+      '</div>';
+  }
+
+  function renderJournalHistoryLoading() {
+    if (!journalHistoryList) return;
+    journalHistoryList.innerHTML =
+      '<div class="journal-empty-state">' +
+        '<p class="journal-empty-state__title">Loading your journal...</p>' +
+      '</div>';
+  }
+
+  function renderJournalHistoryEmpty() {
+    if (!journalHistoryList) return;
+    journalHistoryList.innerHTML =
+      '<div class="journal-empty-state">' +
+        '<span class="journal-empty-state__icon">📖</span>' +
+        '<p class="journal-empty-state__title">No journal entries yet</p>' +
+        '<p class="journal-empty-state__desc">Your thoughts will appear here after you save your first journal.</p>' +
+      '</div>';
+  }
+
+  function renderJournalHistoryError() {
+    if (!journalHistoryList) return;
+    journalHistoryList.innerHTML =
+      '<div class="journal-empty-state">' +
+        '<p class="journal-empty-state__title">Unable to load your journals.</p>' +
+      '</div>';
+  }
+
+  function renderJournalCards() {
+    if (!journalHistoryList) return;
+    journalHistoryList.innerHTML = '';
+
+    journalsData.forEach(function (entry) {
+      var card = document.createElement('div');
+      card.className = 'journal-entry-card';
+      card.setAttribute('data-id', entry.id);
+
+      var header = document.createElement('div');
+      header.className = 'journal-entry-card__header';
+
+      var moodSpan = document.createElement('span');
+      moodSpan.className = 'journal-entry-card__mood';
+      moodSpan.textContent = moodEmoji(entry.mood) + ' ' + (entry.mood || 'Journal');
+
+      var dateSpan = document.createElement('span');
+      dateSpan.className = 'journal-entry-card__date';
+      dateSpan.textContent = formatJournalTimestamp(entry.created_at);
+
+      header.appendChild(moodSpan);
+      header.appendChild(dateSpan);
+
+      var content = document.createElement('p');
+      content.className = 'journal-entry-card__content';
+      content.textContent = entry.content;
+
+      var actions = document.createElement('div');
+      actions.className = 'journal-entry-card__actions';
+
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-icon btn-icon--edit-journal';
+      editBtn.textContent = '✏️ Edit';
+      editBtn.addEventListener('click', function () { startEditJournal(entry); });
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-icon btn-icon--delete-journal';
+      delBtn.textContent = '🗑️ Delete';
+      delBtn.addEventListener('click', function () { requestDeleteJournal(entry.id); });
+
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+
+      card.appendChild(header);
+      card.appendChild(content);
+      card.appendChild(actions);
+      journalHistoryList.appendChild(card);
+    });
+  }
+
+  /* ---------- LOAD ---------- */
+
   async function loadJournal() {
-    if (!currentUser || !journalText || !supabaseClient) return;
+    if (!journalHistoryList) return;
+
+    if (!currentUser || !supabaseClient) {
+      renderJournalHistoryLoginRequired();
+      return;
+    }
+
+    renderJournalHistoryLoading();
+
     try {
-      var res = await supabaseClient.from('journals').select('content').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
-      if (res.data && res.data.length > 0) journalText.value = res.data[0].content;
+      var res = await supabaseClient
+        .from('journals')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (res.error) throw res.error;
+
+      journalsData = res.data || [];
+
+      if (journalsData.length === 0) {
+        renderJournalHistoryEmpty();
+      } else {
+        renderJournalCards();
+      }
     } catch (err) {
-      console.warn('Gagal memuat jurnal:', err);
+      console.error('Failed to load journals:', err);
+      renderJournalHistoryError();
+      showToast('Unable to load your journals.', '⚠️');
     }
   }
 
-  document.getElementById('saveJournalBtn')?.addEventListener('click', async function () {
+  /* ---------- SAVE (insert or update) ---------- */
+
+  saveJournalBtn?.addEventListener('click', async function () {
     if (!currentUser) return openModal(authModal);
     if (!supabaseClient || !journalText) return;
 
-    var textVal = journalText.value;
-    if (!textVal.trim()) return showToast('Tuliskan sesuatu sebelum menyimpan.', '💭');
+    var textVal = journalText.value.trim();
+    if (!textVal) return showToast('Tuliskan sesuatu sebelum menyimpan.', '💭');
 
     try {
-      var res = await supabaseClient.from('journals').insert([{ user_id: currentUser.id, content: textVal }]);
-      if (!res.error) {
-        showToast('Jurnal tersimpan dengan aman!', '📝');
-        var status = document.getElementById('journalStatus');
-        if (status) {
-          status.textContent = 'Tersimpan ✓';
-          setTimeout(function () { status.textContent = ''; }, 2500);
-        }
+      if (editingJournalId) {
+        var updateRes = await supabaseClient
+          .from('journals')
+          .update({ content: textVal, mood: selectedMood, updated_at: new Date().toISOString() })
+          .eq('id', editingJournalId)
+          .eq('user_id', currentUser.id)
+          .select();
+
+        if (updateRes.error) throw updateRes.error;
+        showToast('Journal updated ✨', '✏️');
+      } else {
+        var insertRes = await supabaseClient
+          .from('journals')
+          .insert([{ user_id: currentUser.id, content: textVal, mood: selectedMood }])
+          .select();
+
+        if (insertRes.error) throw insertRes.error;
+        showToast('Journal saved successfully ✨', '📝');
       }
+
+      resetJournalComposer();
+
+      if (journalStatusEl) {
+        journalStatusEl.textContent = 'Tersimpan ✓';
+        setTimeout(function () { journalStatusEl.textContent = ''; }, 2500);
+      }
+
+      loadJournal();
     } catch (err) {
-      showToast('Gagal menyimpan jurnal.', '⚠️');
+      console.error('Failed to save journal:', err);
+      showToast('Unable to save your journal.', '⚠️');
     }
   });
+
+  /* ---------- DELETE (with confirmation) ---------- */
+
+  function requestDeleteJournal(id) {
+    journalIdPendingDelete = id;
+    openModal(journalDeleteModal);
+  }
+
+  document.getElementById('cancelDeleteJournalBtn')?.addEventListener('click', function () {
+    journalIdPendingDelete = null;
+    closeModal(journalDeleteModal);
+  });
+
+  document.getElementById('confirmDeleteJournalBtn')?.addEventListener('click', async function () {
+    if (!journalIdPendingDelete || !currentUser || !supabaseClient) {
+      closeModal(journalDeleteModal);
+      return;
+    }
+
+    var idToDelete = journalIdPendingDelete;
+
+    try {
+      var res = await supabaseClient
+        .from('journals')
+        .delete()
+        .eq('id', idToDelete)
+        .eq('user_id', currentUser.id);
+
+      if (res.error) throw res.error;
+
+      journalsData = journalsData.filter(function (j) { return j.id !== idToDelete; });
+
+      if (journalsData.length === 0) {
+        renderJournalHistoryEmpty();
+      } else {
+        renderJournalCards();
+      }
+
+      showToast('Journal deleted', '🗑️');
+    } catch (err) {
+      console.error('Failed to delete journal:', err);
+      showToast('Unable to delete your journal.', '⚠️');
+    } finally {
+      journalIdPendingDelete = null;
+      closeModal(journalDeleteModal);
+    }
+  });
+
 });
