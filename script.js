@@ -333,12 +333,47 @@ document.addEventListener('DOMContentLoaded', async function () {
     { id: '3', name: 'Call with design team', badge: '10:00 AM', checked: false }
   ];
 
+
   var tasksData = [...initialTasks];
+
+  try {
+    var savedTasks = localStorage.getItem('cozyPlannerTasks');
+
+    if (savedTasks !== null) {
+      var parsedTasks = JSON.parse(savedTasks);
+
+      if (
+        Array.isArray(parsedTasks) &&
+        parsedTasks.every(function (task) {
+          return (
+            task &&
+            typeof task.id === 'string' &&
+            typeof task.name === 'string' &&
+            typeof task.badge === 'string' &&
+            typeof task.checked === 'boolean'
+          );
+        })
+      ) {
+        tasksData = parsedTasks;
+      }
+    }
+  } catch (error) {
+    console.warn('Gagal membaca tugas lokal:', error);
+  }
+
   var todoListContainer = document.getElementById('todoList');
   var taskProgressEl = document.getElementById('taskProgress');
 
   function renderTasks() {
     if (!todoListContainer) return;
+    try {
+      localStorage.setItem(
+        'cozyPlannerTasks',
+        JSON.stringify(tasksData)
+      );
+    } catch (error) {
+      console.error('Gagal menyimpan tugas lokal:', error);
+    }
     todoListContainer.innerHTML = '';
 
     var doneCount = 0;
@@ -359,8 +394,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         '<span class="todo-item__name">' + task.name + '</span>' +
         '<button class="badge ' + badgeClass + ' status-toggle">' + badgeText + '</button>' +
         '<div class="todo-actions">' +
-          '<button class="btn-icon btn-icon--edit" title="Edit">✏️</button>' +
-          '<button class="btn-icon btn-icon--delete" title="Delete">🗑️</button>' +
+        '<button class="btn-icon btn-icon--edit" title="Edit">✏️</button>' +
+        '<button class="btn-icon btn-icon--delete" title="Delete">🗑️</button>' +
         '</div>';
 
       var checkbox = li.querySelector('.checkbox');
@@ -457,6 +492,166 @@ document.addEventListener('DOMContentLoaded', async function () {
   renderTasks();
 
   /* ---------- HABIT TRACKER ENGINE ---------- */
+
+  function saveHabitsLocally(habits) {
+    try {
+      localStorage.setItem(
+        'cozyPlannerHabits',
+        JSON.stringify(habits)
+      );
+    } catch (error) {
+      console.error('Gagal menyimpan habit lokal:', error);
+    }
+  }
+
+  function getLocalHabits() {
+    try {
+      var saved = localStorage.getItem('cozyPlannerHabits');
+
+      if (saved) {
+        var habits = JSON.parse(saved);
+
+        if (Array.isArray(habits)) {
+          return habits;
+        }
+      }
+    } catch (error) {
+      console.error('Gagal membaca habit lokal:', error);
+    }
+
+    return null;
+  }
+
+  function getDirtyHabitIds() {
+    try {
+      return JSON.parse(
+        localStorage.getItem('cozyPlannerDirtyHabitIds') || '[]'
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  function saveDirtyHabitIds(ids) {
+    localStorage.setItem(
+      'cozyPlannerDirtyHabitIds',
+      JSON.stringify([...new Set(ids.map(String))])
+    );
+  }
+
+  function markHabitDirty(id) {
+    if (isLocalHabitId(id)) return;
+
+    var ids = getDirtyHabitIds();
+    ids.push(String(id));
+    saveDirtyHabitIds(ids);
+  }
+
+
+  async function syncLocalHabits() {
+    if (!navigator.onLine || !currentUser || !supabaseClient) return;
+
+    var localHabits = getLocalHabits() || [];
+
+    // 1. Sinkronkan habit baru yang dibuat offline
+    var pendingHabits = localHabits.filter(function (habit) {
+      return typeof habit.id === 'string' &&
+        habit.id.startsWith('local-');
+    });
+
+    for (var habit of pendingHabits) {
+      try {
+        var result = await supabaseClient
+          .from('habits')
+          .insert({
+            user_id: currentUser.id,
+            habit_name: habit.habit_name,
+            completed_days: habit.completed_days,
+            active_days: habit.active_days
+          })
+          .select()
+          .single();
+
+        if (result.error) throw result.error;
+
+        localHabits = localHabits.map(function (item) {
+          return String(item.id) === String(habit.id)
+            ? result.data
+            : item;
+        });
+
+        saveHabitsLocally(localHabits);
+      } catch (error) {
+        console.error(
+          'Gagal menyinkronkan habit baru:',
+          habit.habit_name,
+          error
+        );
+      }
+    }
+
+    // 2. Sinkronkan perubahan checkbox yang tertunda
+    var dirtyIds = getDirtyHabitIds();
+    var stillDirty = [];
+
+    for (var dirtyId of dirtyIds) {
+      var dirtyHabit = localHabits.find(function (item) {
+        return String(item.id) === String(dirtyId);
+      });
+
+      if (!dirtyHabit || isLocalHabitId(dirtyHabit.id)) {
+        stillDirty.push(String(dirtyId));
+        continue;
+      }
+
+      try {
+        var updateResult = await supabaseClient
+          .from('habits')
+          .update({
+            completed_days: dirtyHabit.completed_days,
+            active_days: dirtyHabit.active_days
+          })
+          .eq('id', dirtyHabit.id)
+          .eq('user_id', currentUser.id)
+          .select();
+
+        if (updateResult.error) throw updateResult.error;
+
+        // Jika tidak ada baris yang diperbarui, pertahankan antreannya
+        if (!updateResult.data || updateResult.data.length === 0) {
+          stillDirty.push(String(dirtyId));
+          console.warn(
+            'Tidak ada data habit yang diperbarui:',
+            dirtyHabit.habit_name
+          );
+        }
+      } catch (error) {
+        stillDirty.push(String(dirtyId));
+        console.error(
+          'Gagal menyinkronkan perubahan:',
+          dirtyHabit.habit_name,
+          error
+        );
+      }
+    }
+
+    // 3. Hapus antrean yang berhasil disinkronkan
+    saveDirtyHabitIds(stillDirty);
+  }
+
+  // Sinkronkan otomatis saat internet kembali
+  window.addEventListener('online', async function () {
+    await syncLocalHabits();
+    await loadHabits();
+  });
+
+  // Coba sinkronkan kembali saat internet tersambung.
+  window.addEventListener('online', async function () {
+    await syncLocalHabits();
+    await loadHabits();
+  });
+
+
   var habitTable = document.getElementById('habitTable');
 
   function isLocalHabitId(rowId) {
@@ -469,27 +664,91 @@ document.addEventListener('DOMContentLoaded', async function () {
     renderRow('default-1', '🏃 Joging', [false, false, false, false, false, false, false], [true, true, true, true, true, true, true]);
   }
 
-  async function loadHabits() {
-    if (!currentUser || !habitTable || !supabaseClient) {
-      loadDefaultHabits();
-      return;
-    }
-    try {
-      var res = await supabaseClient.from('habits').select('*').eq('user_id', currentUser.id);
 
-      if (res.data && res.data.length > 0) {
-        habitTable.querySelectorAll('.habit-table__row[data-habit]').forEach(function (r) { r.remove(); });
-        res.data.forEach(function (rowItem) {
-          renderRow(rowItem.id, rowItem.habit_name, rowItem.completed_days, rowItem.active_days);
+
+  async function loadHabits() {
+    if (!habitTable) return;
+
+    function showHabits(habits) {
+      habitTable
+        .querySelectorAll('.habit-table__row[data-habit]')
+        .forEach(function (row) {
+          row.remove();
         });
+
+      habits.forEach(function (habit) {
+        renderRow(
+          habit.id,
+          habit.habit_name,
+          habit.completed_days,
+          habit.active_days
+        );
+      });
+    }
+
+    var savedHabits = getLocalHabits() || [];
+
+    if (!navigator.onLine || !currentUser || !supabaseClient) {
+      if (savedHabits.length) {
+        showHabits(savedHabits);
       } else {
         loadDefaultHabits();
       }
-    } catch (err) {
-      console.warn('Gagal memuat habit dari Supabase, memuat default:', err);
-      loadDefaultHabits();
+      return;
+    }
+
+    try {
+      var result = await supabaseClient
+        .from('habits')
+        .select('*')
+        .eq('user_id', currentUser.id);
+
+      if (result.error) throw result.error;
+
+      var serverHabits = result.data || [];
+      var dirtyIds = getDirtyHabitIds();
+
+      var mergedHabits = serverHabits.map(function (serverHabit) {
+        var localHabit = savedHabits.find(function (habit) {
+          return String(habit.id) === String(serverHabit.id);
+        });
+
+        if (localHabit && dirtyIds.includes(String(serverHabit.id))) {
+          return {
+            ...serverHabit,
+            completed_days: localHabit.completed_days,
+            active_days: localHabit.active_days
+          };
+        }
+
+        return serverHabit;
+      });
+
+      savedHabits.forEach(function (habit) {
+        if (
+          typeof habit.id === 'string' &&
+          habit.id.startsWith('local-')
+        ) {
+          mergedHabits.push(habit);
+        }
+      });
+
+      saveHabitsLocally(mergedHabits);
+      showHabits(mergedHabits);
+
+      await syncLocalHabits();
+    } catch (error) {
+      console.error('Gagal memuat habit:', error);
+
+      if (savedHabits.length) {
+        showHabits(savedHabits);
+      } else {
+        loadDefaultHabits();
+      }
     }
   }
+
+
 
   function renderRow(rowId, rowName, daysArr, activeDaysArr) {
     if (!habitTable) return;
@@ -499,6 +758,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     var row = document.createElement('div');
     row.className = 'habit-table__row';
     row.setAttribute('data-habit', rowName);
+    row.dataset.habitId = String(rowId);
 
     var html = '<span class="habit-name-col">' + rowName + '</span>';
     for (var i = 0; i < 7; i++) {
@@ -516,44 +776,118 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     row.innerHTML = html;
 
+
     // Hapus Habit Event
     row.querySelector('.delete-habit-btn')?.addEventListener('click', async function () {
-      if (currentUser && supabaseClient && !isLocalHabitId(rowId)) {
+      if (currentUser && supabaseClient && navigator.onLine && !isLocalHabitId(rowId)) {
         try {
-          await supabaseClient.from('habits').delete().eq('id', rowId);
-        } catch (err) {
-          console.warn('Gagal hapus habit Supabase:', err);
+          var deleteResult = await supabaseClient
+            .from('habits')
+            .delete()
+            .eq('id', rowId);
+
+          if (deleteResult.error) throw deleteResult.error;
+        } catch (error) {
+          console.warn('Gagal menghapus habit dari Supabase:', error);
+          showToast('Habit belum terhapus dari server.', '⚠️');
+          return;
         }
       }
+
       row.remove();
+
+      var remainingHabits = [];
+
+      habitTable.querySelectorAll('.habit-table__row[data-habit]').forEach(function (habitRow) {
+        var buttons = habitRow.querySelectorAll('.day-toggle');
+        var completedDays = [];
+        var activeDays = [];
+
+        buttons.forEach(function (button, index) {
+          var cell = button.parentElement;
+          completedDays[index] = cell?.getAttribute('data-checked') === 'true';
+          activeDays[index] = !button.disabled;
+        });
+
+        remainingHabits.push({
+          id: habitRow.dataset.habitId || 'local-' + Date.now(),
+          habit_name: habitRow.getAttribute('data-habit'),
+          completed_days: completedDays,
+          active_days: activeDays
+        });
+      });
+
+      saveHabitsLocally(remainingHabits);
       updateHabitMetric();
-      showToast('Habit berhasil dihapus', '🗑️');
+      showToast('Habit berhasil dihapus dari tampilan.', '🗑️');
     });
 
     // Toggle status hari Habit
     row.querySelectorAll('.day-toggle:not([disabled])').forEach(function (btn) {
-      /** @type {HTMLElement} */ (btn).onclick = async function () {
+      btn.onclick = async function () {
         var idxStr = btn.getAttribute('data-idx');
-        if (!idxStr) return;
-        var idx = parseInt(idxStr);
+        if (idxStr === null) return;
+
+        var idx = parseInt(idxStr, 10);
         var cell = btn.parentElement;
         if (!cell) return;
 
         var current = cell.getAttribute('data-checked') === 'true';
+        daysArr = Array.isArray(daysArr) ? daysArr : [false, false, false, false, false, false, false];
+
         daysArr[idx] = !current;
         cell.setAttribute('data-checked', String(daysArr[idx]));
         btn.classList.toggle('is-active', daysArr[idx]);
 
-        if (currentUser && supabaseClient && !isLocalHabitId(rowId)) {
+        var habitRecords = [];
+
+        habitTable.querySelectorAll('.habit-table__row[data-habit]').forEach(function (habitRow) {
+          var habitButtons = habitRow.querySelectorAll('.day-toggle');
+          var completedDays = [];
+          var activeDays = [];
+
+          habitButtons.forEach(function (habitButton, index) {
+            var habitCell = habitButton.parentElement;
+            completedDays[index] = habitCell?.getAttribute('data-checked') === 'true';
+            activeDays[index] = !habitButton.disabled;
+          });
+
+          habitRecords.push({
+            id: habitRow.dataset.habitId || 'local-' + Date.now(),
+            habit_name: habitRow.getAttribute('data-habit'),
+            completed_days: completedDays,
+            active_days: activeDays
+          });
+        });
+
+        saveHabitsLocally(habitRecords);
+
+        if (!isLocalHabitId(rowId)) {
+          markHabitDirty(rowId);
+        }
+
+        if (navigator.onLine) {
+          syncLocalHabits();
+        }
+
+        if (currentUser && supabaseClient && navigator.onLine && !isLocalHabitId(rowId)) {
           try {
-            await supabaseClient.from('habits').update({ completed_days: daysArr }).eq('id', rowId);
-          } catch (err) {
-            console.warn('Gagal update status habit Supabase:', err);
+            var updateResult = await supabaseClient
+              .from('habits')
+              .update({ completed_days: daysArr })
+              .eq('id', rowId);
+
+            if (updateResult.error) throw updateResult.error;
+          } catch (error) {
+            console.warn('Gagal memperbarui habit di Supabase:', error);
+            showToast('Tersimpan di perangkat; server belum diperbarui.', '📱');
           }
         }
+
         updateHabitMetric();
       };
     });
+
 
     habitTable.appendChild(row);
     updateHabitMetric();
@@ -578,68 +912,66 @@ document.addEventListener('DOMContentLoaded', async function () {
     openModal(habitModal);
   });
 
-  // FIXED SAVE HABIT SUBMIT HANDLER
+
+  // SAVE HABIT — ONLINE DAN OFFLINE
   document.getElementById('addHabitForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
 
-    try {
-      var iconInput = /** @type {HTMLInputElement} */ (document.getElementById('habitIconInput'));
-      var nameInput = /** @type {HTMLInputElement} */ (document.getElementById('habitNameInput'));
+    var iconInput = document.getElementById('habitIconInput');
+    var nameInput = document.getElementById('habitNameInput');
 
-      var icon = iconInput ? (iconInput.value.trim() || '✨') : '✨';
-      var name = nameInput ? nameInput.value.trim() : '';
+    var icon = iconInput ? iconInput.value.trim() || '✨' : '✨';
+    var name = nameInput ? nameInput.value.trim() : '';
 
-      if (!name) {
-        showToast('Nama habit tidak boleh kosong.', '⚠️');
-        return;
+    if (!name) {
+      showToast('Nama habit tidak boleh kosong.', '⚠️');
+      return;
+    }
+
+    var fullName = icon + ' ' + name;
+    var activeDays = [false, false, false, false, false, false, false];
+
+    document.querySelectorAll('.habit-day-cb').forEach(function (cb) {
+      var dayIdx = parseInt(cb.getAttribute('data-day') || '0', 10);
+      if (dayIdx >= 0 && dayIdx < 7) {
+        activeDays[dayIdx] = cb.checked;
       }
+    });
 
-      var fullName = icon + ' ' + name;
+    var completedDays = [false, false, false, false, false, false, false];
+    var newHabit = {
+      id: 'local-' + Date.now(),
+      habit_name: fullName,
+      completed_days: completedDays,
+      active_days: activeDays
+    };
 
-      var activeDays = [false, false, false, false, false, false, false];
-      var cbList = document.querySelectorAll('.habit-day-cb');
-      cbList.forEach(function (cb) {
-        var input = /** @type {HTMLInputElement} */ (cb);
-        var dayIdx = parseInt(input.getAttribute('data-day') || '0');
-        activeDays[dayIdx] = input.checked;
-      });
+    // Tampilkan habit dan simpan di perangkat terlebih dahulu.
+    renderRow(
+      newHabit.id,
+      newHabit.habit_name,
+      newHabit.completed_days,
+      newHabit.active_days
+    );
 
-      var completedDays = [false, false, false, false, false, false, false];
+    var localHabits = getLocalHabits() || [];
+    localHabits.push(newHabit);
+    saveHabitsLocally(localHabits);
 
-      if (currentUser && supabaseClient) {
-        var res = await supabaseClient
-          .from('habits')
-          .insert([{
-            user_id: currentUser.id,
-            habit_name: fullName,
-            completed_days: completedDays,
-            active_days: activeDays
-          }])
-          .select();
+    closeModal(habitModal);
 
-        if (!res.error && res.data && res.data.length > 0) {
-          renderRow(res.data[0].id, res.data[0].habit_name, res.data[0].completed_days, res.data[0].active_days);
-          showToast('Habit baru berhasil ditambahkan!', '✨');
-        } else {
-          // Fallback lokal jika database error
-          renderRow('local-' + Date.now(), fullName, completedDays, activeDays);
-          showToast('Habit ditambahkan (Lokal)', '✨');
-        }
-      } else {
-        // Mode Guest/Lokal
-        renderRow('local-' + Date.now(), fullName, completedDays, activeDays);
-        showToast('Habit ditambahkan (Lokal)', '✨');
-      }
+    if (nameInput) nameInput.value = '';
+    if (iconInput) iconInput.value = '';
 
-      closeModal(habitModal);
-
-      // Reset Form Input
-      if (nameInput) nameInput.value = '';
-    } catch (err) {
-      console.error('Error saat menyimpan habit:', err);
-      showToast('Gagal menyimpan habit.', '⚠️');
+    if (currentUser && supabaseClient && navigator.onLine) {
+      await syncLocalHabits();
+      await loadHabits();
+      showToast('Habit disimpan dan sinkronisasi diperiksa.', '✅');
+    } else {
+      showToast('Habit tersimpan di perangkat.', '📱');
     }
   });
+
 
   /* ==========================================================================
      JOURNAL SYSTEM (Composer + History) — Supabase-backed, per-user
@@ -716,8 +1048,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (!journalHistoryList) return;
     journalHistoryList.innerHTML =
       '<div class="journal-empty-state">' +
-        '<span class="journal-empty-state__icon">📖</span>' +
-        '<p class="journal-empty-state__title">Login to see your personal journal history.</p>' +
+      '<span class="journal-empty-state__icon">📖</span>' +
+      '<p class="journal-empty-state__title">Login to see your personal journal history.</p>' +
       '</div>';
   }
 
@@ -725,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (!journalHistoryList) return;
     journalHistoryList.innerHTML =
       '<div class="journal-empty-state">' +
-        '<p class="journal-empty-state__title">Loading your journal...</p>' +
+      '<p class="journal-empty-state__title">Loading your journal...</p>' +
       '</div>';
   }
 
@@ -733,9 +1065,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (!journalHistoryList) return;
     journalHistoryList.innerHTML =
       '<div class="journal-empty-state">' +
-        '<span class="journal-empty-state__icon">📖</span>' +
-        '<p class="journal-empty-state__title">No journal entries yet</p>' +
-        '<p class="journal-empty-state__desc">Your thoughts will appear here after you save your first journal.</p>' +
+      '<span class="journal-empty-state__icon">📖</span>' +
+      '<p class="journal-empty-state__title">No journal entries yet</p>' +
+      '<p class="journal-empty-state__desc">Your thoughts will appear here after you save your first journal.</p>' +
       '</div>';
   }
 
@@ -743,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (!journalHistoryList) return;
     journalHistoryList.innerHTML =
       '<div class="journal-empty-state">' +
-        '<p class="journal-empty-state__title">Unable to load your journals.</p>' +
+      '<p class="journal-empty-state__title">Unable to load your journals.</p>' +
       '</div>';
   }
 
@@ -964,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       profileAvatarImg.style.display = 'none';
       profileAvatarFallback.style.display = 'flex';
       var label = (currentProfile && (currentProfile.display_name || currentProfile.username)) ||
-                  (currentUser && currentUser.email) || 'G';
+        (currentUser && currentUser.email) || 'G';
       profileAvatarFallback.textContent = label.charAt(0).toUpperCase();
     }
   }

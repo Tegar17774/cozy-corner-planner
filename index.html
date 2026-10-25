@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cozy Corner Planner — Gentle Habits & Mindful Journaling</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="./manifest.json">
 </head>
+
 <body>
 
   <!-- ============ TOAST NOTIFICATION CONTAINER ============ -->
@@ -21,10 +26,10 @@
       <a href="#" class="brand">
         <span class="brand__icon" aria-hidden="true">
           <svg width="28" height="28" viewBox="0 0 26 26" fill="none">
-            <path d="M13 2C13 2 8 5.5 8 11C8 14.5 10 17 13 17C16 17 18 14.5 18 11C18 5.5 13 2 13 2Z" fill="#C3868F"/>
-            <path d="M13 17V24" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
-            <path d="M13 21C13 21 9.5 20 8.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
-            <path d="M13 21C13 21 16.5 20 17.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M13 2C13 2 8 5.5 8 11C8 14.5 10 17 13 17C16 17 18 14.5 18 11C18 5.5 13 2 13 2Z" fill="#C3868F" />
+            <path d="M13 17V24" stroke="#98B296" stroke-width="1.6" stroke-linecap="round" />
+            <path d="M13 21C13 21 9.5 20 8.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round" />
+            <path d="M13 21C13 21 16.5 20 17.5 17.5" stroke="#98B296" stroke-width="1.6" stroke-linecap="round" />
           </svg>
         </span>
         <span class="brand__text">Cozy Corner Planner</span>
@@ -44,11 +49,13 @@
 
         <!-- User menu: shown instead of Login once a session is active -->
         <div class="user-menu" id="userMenu">
-          <button class="user-menu__trigger" id="userMenuTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+          <button class="user-menu__trigger" id="userMenuTrigger" type="button" aria-haspopup="true"
+            aria-expanded="false">
             <span class="avatar avatar--sm" id="navUserAvatar">G</span>
             <span class="user-menu__name" id="navUserName">Guest</span>
             <svg class="user-menu__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
             </svg>
           </button>
           <div class="user-menu__dropdown" id="userMenuDropdown">
@@ -138,7 +145,8 @@
           <button class="pill" data-mood="Calm">☁️ Calm</button>
           <button class="pill" data-mood="Creative">✨ Creative</button>
         </div>
-        <textarea class="journal-card__area" id="journalText" placeholder="Start writing a little something..."></textarea>
+        <textarea class="journal-card__area" id="journalText"
+          placeholder="Start writing a little something..."></textarea>
         <span class="journal-card__status" id="journalStatus"></span>
       </div>
     </div>
@@ -188,17 +196,20 @@
       <div class="card feature-card">
         <div class="feature-icon feature-icon--primary">🌿</div>
         <h3 class="feature-card__title">Gentle Habit Tracker</h3>
-        <p class="feature-card__desc">Focus on weekly rhythms rather than strict streaks. Missed a day? No red marks, just soft nudges.</p>
+        <p class="feature-card__desc">Focus on weekly rhythms rather than strict streaks. Missed a day? No red marks,
+          just soft nudges.</p>
       </div>
       <div class="card feature-card">
         <div class="feature-icon feature-icon--lavender">✍️</div>
         <h3 class="feature-card__title">Mindful Journaling</h3>
-        <p class="feature-card__desc">Expressive prompts and mood tagging help you unwind and archive your daily reflections effortlessly.</p>
+        <p class="feature-card__desc">Expressive prompts and mood tagging help you unwind and archive your daily
+          reflections effortlessly.</p>
       </div>
       <div class="card feature-card">
         <div class="feature-icon feature-icon--green">☁️</div>
         <h3 class="feature-card__title">Instant Cloud Sync</h3>
-        <p class="feature-card__desc">Powered by real-time database sync so your goals and journals are safe on all your personal devices.</p>
+        <p class="feature-card__desc">Powered by real-time database sync so your goals and journals are safe on all your
+          personal devices.</p>
       </div>
     </div>
   </section>
@@ -213,19 +224,22 @@
       <details class="faq-item card">
         <summary class="faq-question">Apa Cozy Corner Planner ?</summary>
         <div class="faq-answer">
-          Ya, Anda dapat menikmati fitur Habit Tracker dasar, Todo List, dan Journaling secara gratis. Kami juga menyediakan opsi akun terdaftar untuk menyimpan data Anda secara aman di cloud.
+          Ya, Anda dapat menikmati fitur Habit Tracker dasar, Todo List, dan Journaling secara gratis. Kami juga
+          menyediakan opsi akun terdaftar untuk menyimpan data Anda secara aman di cloud.
         </div>
       </details>
       <details class="faq-item card">
         <summary class="faq-question">Bagaimana data saya tersimpan?</summary>
         <div class="faq-answer">
-          Data Anda disinkronkan secara enkripsi menggunakan layanan Supabase Cloud saat Anda login. Jika belum login, data dasar akan berjalan dalam mode demo lokal.
+          Data Anda disinkronkan secara enkripsi menggunakan layanan Supabase Cloud saat Anda login. Jika belum login,
+          data dasar akan berjalan dalam mode demo lokal.
         </div>
       </details>
       <details class="faq-item card">
         <summary class="faq-question">Dapatkah saya menggunakannya di smartphone?</summary>
         <div class="faq-answer">
-          Tentu saja! Cozy Corner Planner didesain dengan pendekatan Mobile-First yang sangat halus di browser HP maupun Tablet tanpa perlu menginstal aplikasi tambahan.
+          Tentu saja! Cozy Corner Planner didesain dengan pendekatan Mobile-First yang sangat halus di browser HP maupun
+          Tablet tanpa perlu menginstal aplikasi tambahan.
         </div>
       </details>
     </div>
@@ -247,13 +261,20 @@
         <div class="form-group">
           <label>Target Days</label>
           <div class="days-selector">
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="0" checked><span>M</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="1" checked><span>T</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="2" checked><span>W</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="3" checked><span>T</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="4" checked><span>F</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="5" checked><span>S</span></label>
-            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="6" checked><span>S</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="0"
+                checked><span>M</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="1"
+                checked><span>T</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="2"
+                checked><span>W</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="3"
+                checked><span>T</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="4"
+                checked><span>F</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="5"
+                checked><span>S</span></label>
+            <label class="day-check"><input type="checkbox" class="habit-day-cb" data-day="6"
+                checked><span>S</span></label>
           </div>
         </div>
         <div class="modal__actions">
@@ -343,7 +364,8 @@
   <div class="modal-overlay" id="journalDeleteModal">
     <div class="modal" style="max-width:400px;">
       <h3 class="modal__title">Delete this journal entry?</h3>
-      <p style="color:var(--color-text-soft); font-size:0.92rem; margin:0 0 24px;">This action can't be undone — the entry will be permanently removed.</p>
+      <p style="color:var(--color-text-soft); font-size:0.92rem; margin:0 0 24px;">This action can't be undone — the
+        entry will be permanently removed.</p>
       <div class="modal__actions">
         <button type="button" class="btn btn--ghost" id="cancelDeleteJournalBtn">Cancel</button>
         <button type="button" class="btn btn--primary btn--danger" id="confirmDeleteJournalBtn">Delete</button>
@@ -427,7 +449,8 @@
 
           <div class="form-group">
             <label for="bioInput">Bio</label>
-            <textarea id="bioInput" class="journal-card__area" style="min-height:70px;" placeholder="Write something about yourself..."></textarea>
+            <textarea id="bioInput" class="journal-card__area" style="min-height:70px;"
+              placeholder="Write something about yourself..."></textarea>
           </div>
 
           <div class="form-group">
@@ -472,7 +495,8 @@
       </div>
     </div>
     <div class="footer__bottom container">
-      <p>&copy; 2026 Cozy Corner Planner by <span><a href="https://wa.me/6283167634348">GersDEV</a></span>. Made for slow, intentional days.</p>
+      <p>&copy; 2026 Cozy Corner Planner by <span><a href="https://wa.me/6283167634348">GersDEV</a></span>. Made for
+        slow, intentional days.</p>
       <div class="footer__status">
         <span class="status-dot"></span> All Systems Operational
       </div>
@@ -481,5 +505,21 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .then(function () {
+            console.log("Service Worker berhasil didaftarkan.");
+          })
+          .catch(function (error) {
+            console.error("Service Worker gagal:", error);
+          });
+      });
+    }
+  </script>
 </body>
+
 </html>
